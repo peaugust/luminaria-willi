@@ -9,10 +9,10 @@
 // Número do pino onde o sensor de presença foi conectado
 #define SENSOR_PIN 2
 
-#define BUTTON_1 4  // Direita
-#define BUTTON_2 7  // Baixo
-#define BUTTON_3 8  // Esquerda
-#define BUTTON_4 12 // Cima
+#define BUTTON_1 12 // Cima
+#define BUTTON_2 8  // Esquerda
+#define BUTTON_3 7  // Baixo
+#define BUTTON_4 4  // Direita
 
 // Comprimento da fita de LED
 #define NUMPIXELS 15
@@ -114,143 +114,255 @@ void setup()
   pinMode(BUTTON_4, INPUT);
 }
 
-void changeLedColor(RGB cor);
-
+void mudaCorDoLed(RGB cor);
+void mudaEstado(ESTADO novoEstado);
 /****************************************
  * Loop
  */
 void loop()
 {
+  Serial.println(estado_atual);
   // Fita de led liga
   pixels.clear(); // Set all pixel colors to 'off'
   // Lê todos os botões
-  readAllButtons();
-  changeLedColor(estadoCores[estado_atual]);
+  leEstadoDosBotoes();
+  mudaCorDoLed(estadoCores[estado_atual]);
   switch (estado_atual)
   {
   case AGUARDANDO:
-    Serial.println("AGUARDANDO");
     if (bt1 && bt3)
     {
-      estado_atual = DORMINDO;
+      mudaEstado(DORMINDO);
     }
     else if (bt1)
     {
-      estado_atual = BRANCO_BAIXO;
+      mudaEstado(BRANCO_BAIXO);
     }
     break;
   case BRANCO_BAIXO:
-    Serial.println("BRANCO_BAIXO");
     if (bt1)
     {
-      estado_atual = VERMELHO_BAIXO;
+      mudaEstado(VERMELHO_BAIXO);
     }
-    else if (bt4)
+
+    if (bt4)
     {
-      estado_atual = BRANCO_MEDIO;
+      mudaEstado(BRANCO_MEDIO);
+    }
+
+    if (bt3)
+    {
+      mudaEstado(AGUARDANDO);
     }
     break;
   case BRANCO_MEDIO:
-    Serial.println("BRANCO_MEDIO");
+    if (bt1)
+    {
+      mudaEstado(VERMELHO_MEDIO);
+    }
+
+    if (bt2)
+    {
+      mudaEstado(BRANCO_BAIXO);
+    }
+
     if (bt4)
     {
-      estado_atual = BRANCO_ALTO;
+      mudaEstado(BRANCO_ALTO);
     }
     break;
   case BRANCO_ALTO:
-    Serial.println("BRANCO_ALTO");
-    break;
-  case VERMELHO_BAIXO:
-    Serial.println("VERMELHO_BAIXO");
     if (bt1)
     {
-      estado_atual = VERDE_BAIXO;
-    }
-    else if (bt4)
-    {
-      estado_atual = VERMELHO_MEDIO;
+      mudaEstado(VERMELHO_ALTO);
     }
 
+    if (bt2)
+    {
+      mudaEstado(BRANCO_MEDIO);
+    }
     break;
-  case VERMELHO_MEDIO:
-    Serial.println("VERMELHO_MEDIO");
+  case VERMELHO_BAIXO:
+    if (bt1)
+    {
+      mudaEstado(VERDE_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(BRANCO_BAIXO);
+    }
     if (bt4)
     {
-      estado_atual = VERMELHO_ALTO;
+      mudaEstado(VERMELHO_MEDIO);
+    }
+    break;
+  case VERMELHO_MEDIO:
+    if (bt1)
+    {
+      mudaEstado(VERDE_MEDIO);
+    }
+    if (bt2)
+    {
+      mudaEstado(VERMELHO_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(BRANCO_MEDIO);
+    }
+    if (bt4)
+    {
+      mudaEstado(VERMELHO_ALTO);
     }
     break;
   case VERMELHO_ALTO:
-    Serial.println("VERMELHO_ALTO");
-    break;
-  case VERDE_BAIXO:
-    Serial.println("VERDE_BAIXO");
     if (bt1)
     {
-      estado_atual = AZUL_BAIXO;
+      mudaEstado(VERDE_ALTO);
     }
-    else if (bt4)
+    if (bt2)
     {
-      estado_atual = VERDE_MEDIO;
+      mudaEstado(VERMELHO_MEDIO);
     }
-
+    if (bt3)
+    {
+      mudaEstado(BRANCO_ALTO);
+    }
     break;
-  case VERDE_MEDIO:
-    Serial.println("VERDE_MEDIO");
+  case VERDE_BAIXO:
+    if (bt1)
+    {
+      mudaEstado(AZUL_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERMELHO_BAIXO);
+    }
     if (bt4)
     {
-      estado_atual = VERDE_ALTO;
+      mudaEstado(VERDE_MEDIO);
+    }
+    break;
+  case VERDE_MEDIO:
+    if (bt1)
+    {
+      mudaEstado(AZUL_MEDIO);
+    }
+    if (bt2)
+    {
+      mudaEstado(VERDE_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERMELHO_MEDIO);
+    }
+    if (bt4)
+    {
+      mudaEstado(VERDE_ALTO);
     }
     break;
   case VERDE_ALTO:
-    Serial.println("VERDE_ALTO");
-    break;
-  case AZUL_BAIXO:
-    Serial.println("AZUL_BAIXO");
     if (bt1)
     {
-      estado_atual = AMARELO_BAIXO;
+      mudaEstado(AZUL_ALTO);
     }
-    else if (bt4)
+    if (bt2)
     {
-      estado_atual = AZUL_MEDIO;
+      mudaEstado(VERDE_MEDIO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERMELHO_ALTO);
+    }
+    break;
+  case AZUL_BAIXO:
+    if (bt1)
+    {
+      mudaEstado(AMARELO_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERDE_BAIXO);
+    }
+    if (bt4)
+    {
+      mudaEstado(AZUL_MEDIO);
     }
     break;
   case AZUL_MEDIO:
-    Serial.println("AZUL_MEDIO");
+    if (bt1)
+    {
+      mudaEstado(AMARELO_MEDIO);
+    }
+    if (bt2)
+    {
+      mudaEstado(AZUL_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERDE_MEDIO);
+    }
     if (bt4)
     {
-      estado_atual = AZUL_ALTO;
+      mudaEstado(AZUL_ALTO);
     }
     break;
   case AZUL_ALTO:
-    Serial.println("AZUL_ALTO");
-    break;
-  case AMARELO_BAIXO:
-    Serial.println("AMARELO_BAIXO");
     if (bt1)
     {
-      estado_atual = BRANCO_BAIXO;
+      mudaEstado(AMARELO_ALTO);
     }
-    else if (bt4)
+    if (bt2)
     {
-      estado_atual = AMARELO_MEDIO;
+      mudaEstado(AMARELO_MEDIO);
+    }
+    if (bt3)
+    {
+      mudaEstado(VERDE_ALTO);
+    }
+    break;
+  case AMARELO_BAIXO:
+    if (bt1)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (bt3)
+    {
+      mudaEstado(AZUL_BAIXO);
+    }
+    if (bt4)
+    {
+      mudaEstado(AMARELO_MEDIO);
     }
     break;
   case AMARELO_MEDIO:
-    Serial.println("AMARELO_MEDIO");
+    if (bt2)
+    {
+      mudaEstado(AMARELO_BAIXO);
+    }
+    if (bt3)
+    {
+      mudaEstado(AZUL_MEDIO);
+    }
     if (bt4)
     {
-      estado_atual = AMARELO_ALTO;
+      mudaEstado(AMARELO_ALTO);
     }
     break;
   case AMARELO_ALTO:
-    Serial.println("AMARELO_ALTO");
+    if (bt2)
+    {
+      mudaEstado(AMARELO_MEDIO);
+    }
+    if (bt3)
+    {
+      mudaEstado(AZUL_ALTO);
+    }
     break;
   case DORMINDO:
     Serial.println("DORMINDO");
     if (sp == HIGH)
     {
-      estado_atual = ACORDADO;
+      mudaEstado(ACORDADO);
     }
     break;
   case ACORDADO:
@@ -261,7 +373,15 @@ void loop()
   delay(200);
 }
 
-void readAllButtons()
+void mudaEstado(ESTADO novoEstado)
+{
+  if (estado_atual != novoEstado)
+  {
+    estado_atual = novoEstado;
+  }
+}
+
+void leEstadoDosBotoes()
 {
   bt1 = digitalRead(BUTTON_1);
   bt2 = digitalRead(BUTTON_2);
@@ -269,21 +389,8 @@ void readAllButtons()
   bt4 = digitalRead(BUTTON_4);
 }
 
-void changeLedColor(RGB cor)
+void mudaCorDoLed(RGB cor)
 {
-  Serial.print("Nova cor: R=");
-  Serial.print(cor.r);
-  Serial.print(" G=");
-  Serial.print(cor.g);
-  Serial.print(" B=");
-  Serial.println(cor.b);
-
-  Serial.print("Cor atual: R=");
-  Serial.print(cor_atual.r);
-  Serial.print(" G=");
-  Serial.print(cor_atual.g);
-  Serial.print(" B=");
-  Serial.println(cor_atual.b);
   if (cor_atual != cor)
   {
     cor_atual = cor;
