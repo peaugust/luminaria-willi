@@ -359,15 +359,28 @@ void loop()
     }
     break;
   case DORMINDO:
-    Serial.println("DORMINDO");
+    sp = digitalRead(SENSOR_PIN);
     if (sp == HIGH)
     {
       mudaEstado(ACORDADO);
     }
+
     break;
   case ACORDADO:
     Serial.println("ACORDADO");
     delay(3000);
+    sp = digitalRead(SENSOR_PIN);
+    if (sp == LOW)
+    {
+      mudaEstado(DORMINDO);
+    }
+
+    // TODO ELIF
+    if (bt1 && bt3)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+
     break;
   }
   delay(200);
@@ -391,9 +404,23 @@ void leEstadoDosBotoes()
 
 void mudaCorDoLed(RGB cor)
 {
+  // Serial.print("Nova cor: R=");
+  // Serial.print(cor.r);
+  // Serial.print(" G=");
+  // Serial.print(cor.g);
+  // Serial.print(" B=");
+  // Serial.println(cor.b);
+
+  // Serial.print("Cor atual: R=");
+  // Serial.print(cor_atual.r);
+  // Serial.print(" G=");
+  // Serial.print(cor_atual.g);
+  // Serial.print(" B=");
+  // Serial.println(cor_atual.b);
   if (cor_atual != cor)
   {
     cor_atual = cor;
+    pixels.clear(); // Set all pixel colors to 'off'
     for (int i = 0; i < NUMPIXELS; i++)
     { // Para cada led na fita
       // pixels.Color() recebe valores RGB de 0,0,0 até 255,255,255
