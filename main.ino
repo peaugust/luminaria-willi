@@ -1,23 +1,12 @@
-// Carrega a biblioteca de controle do NeoPixel
 #include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
-#include <avr/power.h>
-#endif
 
-// Número do pino onde o LED foi conectado
-#define LED_PIN 13
-// Número do pino onde o sensor de presença foi conectado
-#define SENSOR_PIN 2
+#define BTN_HIGH 20
+#define BTN_1 0
+#define BTN_2 1
+#define BTN_3 2
+#define BTN_4 3
+#define N_LEDS 30
 
-#define BUTTON_1 12 // Cima
-#define BUTTON_2 8  // Esquerda
-#define BUTTON_3 7  // Baixo
-#define BUTTON_4 4  // Direita
-
-// Comprimento da fita de LED
-#define NUMPIXELS 15
-
-// Enumeração dos estados possíveis
 enum ESTADO
 {
   AGUARDANDO,
@@ -40,6 +29,18 @@ enum ESTADO
   ACORDADO,
 };
 
+// Pino de envio comum
+const byte sendPin = 12;
+
+// Pinos de recepção para os 4 botões
+const byte receivePins[4] = {14, 23, 22, 21};
+
+const byte sensorPin = 2;
+
+const byte stripPin = 13;
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_LEDS, stripPin, NEO_GRB + NEO_KHZ800);
+
 struct RGB
 {
   uint8_t r;
@@ -47,12 +48,7 @@ struct RGB
   uint8_t b;
 };
 
-bool operator!=(const RGB &a, const RGB &b)
-{
-  return a.r != b.r || a.g != b.g || a.b != b.b;
-}
-
-const RGB estadoCores[] = {
+static const RGB corPorEstado[] = {
     {0, 0, 0},       // AGUARDANDO
     {32, 32, 32},    // BRANCO_BAIXO
     {128, 128, 128}, // BRANCO_MEDIO
@@ -70,320 +66,373 @@ const RGB estadoCores[] = {
     {128, 128, 0},   // AMARELO_MEDIO
     {255, 255, 0},   // AMARELO_ALTO
     {0, 0, 0},       // DORMINDO
-    {255, 255, 255}  // ACORDADO
+    {255, 255, 255}, // ACORDADO
 };
 
-// Inicializa a fita de LED
-// Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
+// Armazena os valores lidos de cada botão
+unsigned int valores[4];
+
+// Controle do serial monitor
+unsigned long anterior = 0;
+
+// Variável que armazena o valor lido do sensor de presença
+int sp = 0;
 
 // Variável que armazena o valor do estado atual da luminária
 ESTADO estado_atual = AGUARDANDO;
-// Variável que armazena o valor lido do sensor de presença
-int sp = 0;
-// Variável que armazena o valor do botão 1
-int bt1 = 0;
-// Variável que armazena o valor do botão 2
-int bt2 = 0;
-// Variável que armazena o valor do botão 3
-int bt3 = 0;
-// Variável que armazena o valor do botão 4
-int bt4 = 0;
-// Variável que armazena cor atual
-RGB cor_atual = estadoCores[estado_atual];
 
-/****************************************
- * SetUp
- */
 void setup()
 {
-  // Inicia a porta serial
-  Serial.begin(9600);
+  Serial.begin(115200);
+  pinMode(sendPin, OUTPUT);
+  strip.begin();
 
-  // Inicia a fita de LED
-  pixels.begin();
-  // Inicia o sensor de presença
-  pinMode(SENSOR_PIN, INPUT);
-  // Inicia o botão 1
-  pinMode(BUTTON_1, INPUT);
-  // Inicia o botão 2
-  pinMode(BUTTON_2, INPUT);
-  // Inicia o botão 3
-  pinMode(BUTTON_3, INPUT);
-  // Inicia o botão 3
-  pinMode(BUTTON_4, INPUT);
+  // Configura todos os receivePins como entrada inicialmente
+  for (byte i = 0; i < 4; i++)
+  {
+    pinMode(receivePins[i], INPUT);
+  }
+  Serial.println("Iniciando a luminária...");
 }
 
-void mudaCorDoLed(RGB cor);
-void mudaEstado(ESTADO novoEstado);
-/****************************************
- * Loop
- */
 void loop()
 {
+  // Lê os 4 sensores
+  for (byte i = 0; i < 4; i++)
+  {
+    valores[i] = lerSensorCapacitivo(receivePins[i], 5);
+  }
+  Serial.print("Estado atual: E");
   Serial.println(estado_atual);
-  // Fita de led liga
-  pixels.clear(); // Set all pixel colors to 'off'
-  // Lê todos os botões
-  leEstadoDosBotoes();
-  mudaCorDoLed(estadoCores[estado_atual]);
+  mudaCorDoLed(estado_atual);
+
   switch (estado_atual)
   {
   case AGUARDANDO:
-    if (bt1 && bt3)
+    if (valores[BTN_1] >= BTN_HIGH && valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(DORMINDO);
     }
-    else if (bt1)
+    else if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_BAIXO);
     }
     break;
   case BRANCO_BAIXO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_BAIXO);
     }
 
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_MEDIO);
     }
 
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(AGUARDANDO);
     }
     break;
   case BRANCO_MEDIO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_MEDIO);
     }
 
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_BAIXO);
     }
 
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_ALTO);
     }
     break;
   case BRANCO_ALTO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_ALTO);
     }
 
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_MEDIO);
     }
     break;
   case VERMELHO_BAIXO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERDE_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_2] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_BAIXO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_MEDIO);
     }
     break;
   case VERMELHO_MEDIO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERDE_MEDIO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_MEDIO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_ALTO);
     }
     break;
   case VERMELHO_ALTO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(VERDE_ALTO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_MEDIO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(BRANCO_ALTO);
     }
     break;
   case VERDE_BAIXO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AZUL_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_2] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_BAIXO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(VERDE_MEDIO);
     }
     break;
   case VERDE_MEDIO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AZUL_MEDIO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(VERDE_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_MEDIO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(VERDE_ALTO);
     }
     break;
   case VERDE_ALTO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AZUL_ALTO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(VERDE_MEDIO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERMELHO_ALTO);
     }
     break;
   case AZUL_BAIXO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_2] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERDE_BAIXO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(AZUL_MEDIO);
     }
     break;
   case AZUL_MEDIO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_MEDIO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(AZUL_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERDE_MEDIO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(AZUL_ALTO);
     }
     break;
   case AZUL_ALTO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_ALTO);
     }
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_MEDIO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(VERDE_ALTO);
     }
     break;
   case AMARELO_BAIXO:
-    if (bt1)
+    if (valores[BTN_1] >= BTN_HIGH)
     {
       mudaEstado(AGUARDANDO);
     }
-    if (bt3)
+    if (valores[BTN_2] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(AZUL_BAIXO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_MEDIO);
     }
     break;
   case AMARELO_MEDIO:
-    if (bt2)
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_BAIXO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(AZUL_MEDIO);
     }
-    if (bt4)
+    if (valores[BTN_4] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_ALTO);
     }
     break;
   case AMARELO_ALTO:
-    if (bt2)
+    if (valores[BTN_1] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    if (valores[BTN_2] >= BTN_HIGH)
     {
       mudaEstado(AMARELO_MEDIO);
     }
-    if (bt3)
+    if (valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(AZUL_ALTO);
     }
     break;
   case DORMINDO:
-    sp = digitalRead(SENSOR_PIN);
+    sp = digitalRead(sensorPin);
     if (sp == HIGH)
     {
       mudaEstado(ACORDADO);
     }
 
-    break;
-  case ACORDADO:
-    Serial.println("ACORDADO");
-    delay(3000);
-    sp = digitalRead(SENSOR_PIN);
-    if (sp == LOW)
-    {
-      mudaEstado(DORMINDO);
-    }
-
-    // TODO ELIF
-    if (bt1 && bt3)
+    if (valores[BTN_1] >= BTN_HIGH && valores[BTN_3] >= BTN_HIGH)
     {
       mudaEstado(AGUARDANDO);
     }
 
     break;
+  case ACORDADO:
+    Serial.println("ACORDADO");
+    delay(2000);
+    sp = digitalRead(sensorPin);
+    if (sp == LOW)
+    {
+      mudaEstado(DORMINDO);
+    }
+
+    if (valores[BTN_1] >= BTN_HIGH && valores[BTN_3] >= BTN_HIGH)
+    {
+      mudaEstado(AGUARDANDO);
+    }
+    break;
   }
-  delay(200);
+  delay(1000);
+}
+
+// Função que simula leitura capacitiva para um determinado pino de leitura
+unsigned int lerSensorCapacitivo(byte rxPin, byte amostras)
+{
+  unsigned long sum = 0;
+
+  for (int i = 0; i < amostras; i++)
+  {
+    unsigned long tempo = 0;
+
+    digitalWrite(sendPin, LOW);
+    pinMode(rxPin, OUTPUT);
+    digitalWrite(rxPin, LOW);
+    delayMicroseconds(100);
+
+    pinMode(rxPin, INPUT);
+    digitalWrite(sendPin, HIGH);
+
+    while (digitalRead(rxPin) == LOW && tempo < 10000)
+    {
+      tempo++;
+    }
+
+    sum += tempo;
+  }
+
+  return (unsigned int)(sum / amostras);
+}
+
+// Imprime os valores dos botões: Usar para debugar a aplicação
+void imprimeBotoes()
+{
+  unsigned long atual = millis();
+  if (atual - anterior > 250)
+  {
+    Serial.print("B1: ");
+    Serial.print(valores[0]);
+    Serial.print(" | B2: ");
+    Serial.print(valores[1]);
+    Serial.print(" | B3: ");
+    Serial.print(valores[2]);
+    Serial.print(" | B4: ");
+    Serial.println(valores[3]);
+
+    anterior = atual;
+  }
 }
 
 void mudaEstado(ESTADO novoEstado)
@@ -394,38 +443,12 @@ void mudaEstado(ESTADO novoEstado)
   }
 }
 
-void leEstadoDosBotoes()
+void mudaCorDoLed(ESTADO estado)
 {
-  bt1 = digitalRead(BUTTON_1);
-  bt2 = digitalRead(BUTTON_2);
-  bt3 = digitalRead(BUTTON_3);
-  bt4 = digitalRead(BUTTON_4);
-}
-
-void mudaCorDoLed(RGB cor)
-{
-  // Serial.print("Nova cor: R=");
-  // Serial.print(cor.r);
-  // Serial.print(" G=");
-  // Serial.print(cor.g);
-  // Serial.print(" B=");
-  // Serial.println(cor.b);
-
-  // Serial.print("Cor atual: R=");
-  // Serial.print(cor_atual.r);
-  // Serial.print(" G=");
-  // Serial.print(cor_atual.g);
-  // Serial.print(" B=");
-  // Serial.println(cor_atual.b);
-  if (cor_atual != cor)
-  {
-    cor_atual = cor;
-    pixels.clear(); // Set all pixel colors to 'off'
-    for (int i = 0; i < NUMPIXELS; i++)
-    { // Para cada led na fita
-      // pixels.Color() recebe valores RGB de 0,0,0 até 255,255,255
-      pixels.setPixelColor(i, pixels.Color(cor.r, cor.g, cor.b));
-    }
-    pixels.show(); // Send the updated pixel colors to the hardware.
+  for (int i = 0; i < N_LEDS; i++)
+  { // Para cada led na fita recebe valores RGB de 0,0,0 até 255,255,255
+    RGB const cor = corPorEstado[estado];
+    strip.setPixelColor(i, strip.Color(cor.r, cor.g, cor.b));
   }
+  strip.show();
 }
